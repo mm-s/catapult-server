@@ -129,7 +129,8 @@ namespace catapult { namespace partialtransaction {
 		struct PtBootstrapperServiceTraits {
 			static auto CreateRegistrar() {
 				return CreatePtBootstrapperServiceRegistrar([]() {
-					return std::make_unique<cache::MemoryPtCacheProxy>(cache::MemoryCacheOptions(100, 1'000'000));
+					auto cacheOptions = cache::MemoryCacheOptions(utils::FileSize(), utils::FileSize::FromKilobytes(2));
+					return std::make_unique<cache::MemoryPtCacheProxy>(cacheOptions);
 				});
 			}
 		};

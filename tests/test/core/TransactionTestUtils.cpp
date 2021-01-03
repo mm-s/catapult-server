@@ -37,6 +37,10 @@ namespace catapult { namespace test {
 		return utils::ParseByteArray<GenerationHashSeed>("AAAABBBBCCCCDDDDEEEEFFFFAAAABBBBCCCCDDDDEEEEFFFFAAAABBBBCCCCDDDD");
 	}
 
+	size_t GetDefaultRandomTransactionSize() {
+		return GenerateRandomTransaction()->Size;
+	}
+
 	std::unique_ptr<model::Transaction> GenerateRandomTransaction() {
 		return GenerateRandomTransaction(GetDefaultGenerationHashSeed());
 	}

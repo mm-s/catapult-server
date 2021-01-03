@@ -43,17 +43,17 @@ namespace catapult { namespace cache {
 		size_t count(const Key& key) const;
 
 	public:
-		/// Increases the use count for the account with public \a key.
-		void increment(const Key& key);
+		/// Increases the use count by \a weight for the account with public \a key.
+		void increment(const Key& key, uint64_t weight);
 
-		/// Decreases the use count for the account with public \a key.
-		void decrement(const Key& key);
+		/// Decreases the use count by \a weight for the account with public \a key.
+		void decrement(const Key& key, uint64_t weight);
 
 		/// Resets the counters.
 		void reset();
 
 	private:
-		std::unordered_map<Key, size_t, utils::ArrayHasher<Key>> m_accountCounters;
+		std::unordered_map<Key, uint64_t, utils::ArrayHasher<Key>> m_accountCounters;
 		size_t m_totalUseCount;
 	};
 }}

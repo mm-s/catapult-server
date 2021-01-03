@@ -41,18 +41,21 @@ namespace catapult { namespace cache {
 		return m_accountCounters.cend() == iter ? 0 : iter->second;
 	}
 
-	void AccountCounters::increment(const Key& key) {
-		++m_accountCounters[key];
-		++m_totalUseCount;
+	void AccountCounters::increment(const Key& key, uint64_t weight) {
+		if (0 == weight)
+			return;
+
+		m_accountCounters[key] += weight;
+		m_totalUseCount += weight;
 	}
 
-	void AccountCounters::decrement(const Key& key) {
+	void AccountCounters::decrement(const Key& key, uint64_t weight) {
 		auto& useCount = m_accountCounters[key];
-		if (0 == useCount)
+		if (useCount < weight)
 			CATAPULT_THROW_RUNTIME_ERROR_1("use count cannot be decremented below zero for key", key);
 
-		--useCount;
-		--m_totalUseCount;
+		useCount -= weight;
+		m_totalUseCount -= weight;
 
 		if (0 == useCount)
 			m_accountCounters.erase(key);

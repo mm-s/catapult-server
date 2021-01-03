@@ -26,7 +26,6 @@
 #include "ShortHashPair.h"
 #include "catapult/model/CosignedTransactionInfo.h"
 #include "catapult/model/WeakCosignedTransactionInfo.h"
-#include "catapult/utils/FileSize.h"
 #include "catapult/utils/Hashers.h"
 #include "catapult/utils/SpinReaderWriterLock.h"
 #include <unordered_map>

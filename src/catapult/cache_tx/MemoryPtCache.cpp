@@ -198,6 +198,10 @@ namespace catapult { namespace cache {
 				return m_transactionDataContainer.size();
 			}
 
+			utils::FileSize memorySize() const override {
+				return utils::FileSize::FromBytes(m_cacheSize);
+			}
+
 			bool add(const model::DetachedTransactionInfo& transactionInfo) override {
 				auto transactionSize = transactionInfo.pEntity->Size;
 				if (m_maxCacheSize - m_cacheSize < transactionSize)
@@ -301,13 +305,17 @@ namespace catapult { namespace cache {
 
 	MemoryPtCacheView MemoryPtCache::view() const {
 		auto readLock = m_lock.acquireReader();
-		return MemoryPtCacheView(m_options.MaxResponseSize, m_pImpl->CacheSize, m_pImpl->TransactionDataContainer, std::move(readLock));
+		return MemoryPtCacheView(
+				m_options.MaxResponseSize.bytes(),
+				m_pImpl->CacheSize,
+				m_pImpl->TransactionDataContainer,
+				std::move(readLock));
 	}
 
 	PtCacheModifierProxy MemoryPtCache::modifier() {
 		auto writeLock = m_lock.acquireWriter();
 		return PtCacheModifierProxy(std::make_unique<MemoryPtCacheModifier>(
-				m_options.MaxCacheSize,
+				m_options.MaxCacheSize.bytes(),
 				m_pImpl->CacheSize,
 				m_pImpl->TransactionDataContainer,
 				m_pImpl->TimestampedHashes,

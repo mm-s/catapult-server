@@ -37,6 +37,10 @@ namespace catapult { namespace cache {
 				CATAPULT_THROW_RUNTIME_ERROR("size - not supported in mock");
 			}
 
+			utils::FileSize memorySize() const override {
+				CATAPULT_THROW_RUNTIME_ERROR("memorySize - not supported in mock");
+			}
+
 			bool add(const model::TransactionInfo&) override {
 				CATAPULT_THROW_RUNTIME_ERROR("add - not supported in mock");
 			}
@@ -45,8 +49,8 @@ namespace catapult { namespace cache {
 				CATAPULT_THROW_RUNTIME_ERROR("remove - not supported in mock");
 			}
 
-			size_t count(const Key&) const override {
-				CATAPULT_THROW_RUNTIME_ERROR("count - not supported in mock");
+			uint64_t weight(const Key&) const override {
+				CATAPULT_THROW_RUNTIME_ERROR("weight - not supported in mock");
 			}
 
 			std::vector<model::TransactionInfo> removeAll() override {
@@ -108,37 +112,37 @@ namespace catapult { namespace cache {
 	namespace {
 		class MockCountUtCacheModifier : public UnsupportedUtCacheModifier {
 		public:
-			MockCountUtCacheModifier(size_t& numCountCalls, std::vector<Key>& keys)
-					: m_numCountCalls(numCountCalls)
+			MockCountUtCacheModifier(size_t& numWeightCalls, std::vector<Key>& keys)
+					: m_numWeightCalls(numWeightCalls)
 					, m_keys(keys) {
-				m_numCountCalls = 0;
+				m_numWeightCalls = 0;
 			}
 
 		public:
-			size_t count(const Key& key) const override {
+			uint64_t weight(const Key& key) const override {
 				m_keys.push_back(key);
-				return ++m_numCountCalls;
+				return ++m_numWeightCalls;
 			}
 
 		private:
-			size_t& m_numCountCalls;
+			size_t& m_numWeightCalls;
 			std::vector<Key>& m_keys;
 		};
 	}
 
-	TEST(TEST_CLASS, CountDelegatesToCache) {
+	TEST(TEST_CLASS, WeightDelegatesToCache) {
 		// Arrange:
-		size_t numCountCalls;
+		size_t numWeightCalls;
 		std::vector<Key> keys;
 		auto key = test::GenerateRandomByteArray<Key>();
-		TestContext<MockCountUtCacheModifier> context(numCountCalls, keys);
+		TestContext<MockCountUtCacheModifier> context(numWeightCalls, keys);
 
 		// Act:
-		auto numReturnedCountCalls = context.aggregate().modifier().count(key);
+		auto weight = context.aggregate().modifier().weight(key);
 
-		// Assert: - check ut cache modifier was called as expected
-		EXPECT_EQ(1u, numReturnedCountCalls);
-		EXPECT_EQ(1u, numCountCalls);
+		// Assert: check ut cache modifier was called as expected
+		EXPECT_EQ(1u, weight);
+		EXPECT_EQ(1u, numWeightCalls);
 		EXPECT_EQ(std::vector<Key>({ key }), keys);
 	}
 

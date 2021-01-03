@@ -54,8 +54,8 @@ namespace catapult { namespace cache {
 			using BasicAggregateTransactionsCacheModifier<UtTraits, UtChangeSubscriberTraits>::BasicAggregateTransactionsCacheModifier;
 
 		public:
-			size_t count(const Key& key) const override {
-				return modifier().count(key);
+			uint64_t weight(const Key& key) const override {
+				return modifier().weight(key);
 			}
 
 			std::vector<model::TransactionInfo> removeAll() override {

@@ -38,6 +38,9 @@ namespace catapult { namespace test {
 	/// Gets the default generation hash seed used in tests.
 	GenerationHashSeed GetDefaultGenerationHashSeed();
 
+	/// Gets the default size of a random transaction.
+	size_t GetDefaultRandomTransactionSize();
+
 	/// Generates a transaction with random data.
 	std::unique_ptr<model::Transaction> GenerateRandomTransaction();
 

@@ -28,23 +28,21 @@ namespace catapult { namespace cache {
 #define TEST_CLASS AccountCountersTests
 
 	namespace {
+		// region test utils
+
 		enum class OperationType { Increment, Decrement };
 
 		void UpdateUseCount(AccountCounters& counters, const Key& key, size_t delta, OperationType operationType) {
-			for (auto i = 0u; i < delta; ++i) {
-				if (OperationType::Increment == operationType)
-					counters.increment(key);
-				else
-					counters.decrement(key);
-			}
+			if (OperationType::Increment == operationType)
+				counters.increment(key, delta);
+			else
+				counters.decrement(key, delta);
 		}
 
 		AccountCounters CreateInitialCounters(const std::vector<Key>& keys, size_t initialUseCount) {
 			AccountCounters counters;
-			for (auto i = 0u; i < keys.size(); ++i) {
-				for (auto j = 0u; j < initialUseCount; ++j)
-					counters.increment(keys[i]);
-			}
+			for (auto i = 0u; i < keys.size(); ++i)
+				counters.increment(keys[i], initialUseCount);
 
 			// Sanity:
 			EXPECT_EQ(initialUseCount ? keys.size() : 0u, counters.size());
@@ -80,6 +78,8 @@ namespace catapult { namespace cache {
 			for (auto i = 0u; i < keys.size(); ++i)
 				EXPECT_EQ(expectedCounts[i], counters.count(keys[i])) << "at index " << i;
 		}
+
+		// endregion
 	}
 
 	// region basic
@@ -107,17 +107,12 @@ namespace catapult { namespace cache {
 
 	// region increment
 
-	TEST(TEST_CLASS, IncrementIncreasesUseCountForPublicKey_SingleKey_SingleIncrement) {
-		// Act:
-		AssertCounters(test::GenerateRandomDataVector<Key>(1), 0, { 1 }, OperationType::Increment, { 1 });
-	}
-
-	TEST(TEST_CLASS, IncrementIncreasesUseCountForPublicKey_SingleKey_MultipleIncrements) {
+	TEST(TEST_CLASS, IncrementIncreasesUseCountForPublicKey_SingleKey) {
 		// Act:
 		AssertCounters(test::GenerateRandomDataVector<Key>(1), 0, { 8 }, OperationType::Increment, { 8 });
 	}
 
-	TEST(TEST_CLASS, IncrementIncreasesUseCountForPublicKey_MultipleKeys_MultipleIncrements) {
+	TEST(TEST_CLASS, IncrementIncreasesUseCountForPublicKey_MultipleKeys) {
 		// Act:
 		AssertCounters(test::GenerateRandomDataVector<Key>(5), 0, { 1, 4, 3, 7, 2 }, OperationType::Increment, { 1, 4, 3, 7, 2 });
 	}
@@ -126,17 +121,12 @@ namespace catapult { namespace cache {
 
 	// region decrement
 
-	TEST(TEST_CLASS, DecrementDecreasesUseCountForPublicKey_SingleKey_SingleDecrement) {
+	TEST(TEST_CLASS, DecrementDecreasesUseCountForPublicKey_SingleKey) {
 		// Act:
 		AssertCounters(test::GenerateRandomDataVector<Key>(1), 10, { 1 }, OperationType::Decrement, { 9 });
 	}
 
-	TEST(TEST_CLASS, DecrementDecreasesUseCountForPublicKey_SingleKey_MultipleDecrements) {
-		// Act:
-		AssertCounters(test::GenerateRandomDataVector<Key>(1), 10, { 8 }, OperationType::Decrement, { 2 });
-	}
-
-	TEST(TEST_CLASS, DecrementDecreasesUseCountForPublicKey_MultipleKeys_MultipleDecrements) {
+	TEST(TEST_CLASS, DecrementDecreasesUseCountForPublicKey_MultipleKeys) {
 		// Act:
 		AssertCounters(test::GenerateRandomDataVector<Key>(5), 10, { 1, 4, 3, 7, 2 }, OperationType::Decrement, { 9, 6, 7, 3, 8 });
 	}
@@ -145,27 +135,26 @@ namespace catapult { namespace cache {
 		// Arrange:
 		auto key = test::GenerateRandomByteArray<Key>();
 		AccountCounters counters;
-		counters.increment(key);
+		counters.increment(key, 9);
 
-		// Act + Assert: first decrement is permitted, second should throw
-		counters.decrement(key);
-		EXPECT_EQ(0u, counters.count(key));
-		EXPECT_THROW(counters.decrement(test::GenerateRandomByteArray<Key>()), catapult_runtime_error);
+		// Act + Assert:
+		EXPECT_THROW(counters.decrement(key, 10), catapult_runtime_error);
+		EXPECT_THROW(counters.decrement(key, 11), catapult_runtime_error);
 	}
 
 	TEST(TEST_CLASS, DecrementRemovesEntryWhenUseCountIsZero) {
 		// Arrange:
 		auto keys = test::GenerateRandomDataVector<Key>(10);
-		auto counters = CreateInitialCounters(keys, 1);
+		auto counters = CreateInitialCounters(keys, 3);
 
 		// Act:
 		for (auto index : { 1u, 4u, 5u, 8u, 9u })
-			counters.decrement(keys[index]);
+			counters.decrement(keys[index], 3);
 
 		// Assert:
 		EXPECT_EQ(5u, counters.size());
 		for (auto index : { 0u, 2u, 3u, 6u, 7u })
-			EXPECT_EQ(1u, counters.count(keys[index])) << "at index " << index;
+			EXPECT_EQ(3u, counters.count(keys[index])) << "at index " << index;
 
 		for (auto index : { 1u, 4u, 5u, 8u, 9u })
 			EXPECT_EQ(0u, counters.count(keys[index])) << "at index " << index;
@@ -175,18 +164,35 @@ namespace catapult { namespace cache {
 
 	// region mixed increment / decrement
 
-	TEST(TEST_CLASS, IncrementAndDecrementCanBeMixed) {
+	TEST(TEST_CLASS, IncrementsAreCumulative) {
 		// Arrange:
 		auto keys = test::GenerateRandomDataVector<Key>(3);
 		auto key = keys[0];
 		auto counters = CreateInitialCounters(keys, 10);
 
-		// Act: 1 + 1 - 1 + 1 - 1 = 1
-		counters.increment(key);
-		counters.increment(key);
-		counters.decrement(key);
-		counters.increment(key);
-		counters.decrement(key);
+		// Act: 2 + 2 + 1 = 5
+		counters.increment(key, 2);
+		counters.increment(key, 2);
+		counters.increment(key, 1);
+
+		// Assert:
+		EXPECT_EQ(3u, counters.size());
+		EXPECT_EQ(35u, counters.deepSize());
+		EXPECT_EQ(15u, counters.count(key));
+	}
+
+	TEST(TEST_CLASS, IncrementsAndDecrementsAreCumulative) {
+		// Arrange:
+		auto keys = test::GenerateRandomDataVector<Key>(3);
+		auto key = keys[0];
+		auto counters = CreateInitialCounters(keys, 10);
+
+		// Act: 2 + 2 - 3 + 1 - 1 = 1
+		counters.increment(key, 2);
+		counters.increment(key, 2);
+		counters.decrement(key, 3);
+		counters.increment(key, 1);
+		counters.decrement(key, 1);
 
 		// Assert:
 		EXPECT_EQ(3u, counters.size());
