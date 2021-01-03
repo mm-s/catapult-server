@@ -26,6 +26,7 @@
 #include "ShortHashPair.h"
 #include "catapult/model/CosignedTransactionInfo.h"
 #include "catapult/model/WeakCosignedTransactionInfo.h"
+#include "catapult/utils/FileSize.h"
 #include "catapult/utils/Hashers.h"
 #include "catapult/utils/SpinReaderWriterLock.h"
 #include <unordered_map>
@@ -42,16 +43,21 @@ namespace catapult { namespace cache {
 		using UnknownTransactionInfos = std::vector<model::CosignedTransactionInfo>;
 
 	public:
-		/// Creates a view around around a maximum response size (\a maxResponseSize), a partial transaction data container
-		/// (\a transactionDataContainer) with lock context \a readLock.
+		/// Creates a view around around a maximum response size (\a maxResponseSize), current cache size (\a cacheSize)
+		/// and a partial transaction data container (\a transactionDataContainer) with lock context \a readLock.
 		MemoryPtCacheView(
 				uint64_t maxResponseSize,
+				uint64_t cacheSize,
 				const PtDataContainer& transactionDataContainer,
 				utils::SpinReaderWriterLock::ReaderLockGuard&& readLock);
 
 	public:
 		/// Gets the number of partial transactions in the cache.
 		size_t size() const;
+
+		/// Gets the memory size of all partial transactions in the cache.
+		/// \note Size of detached cosignatures is not included.
+		utils::FileSize memorySize() const;
 
 		/// Finds a partial transaction in the cache with associated \a hash or returns \c nullptr if no such transaction exists.
 		model::WeakCosignedTransactionInfo find(const Hash256& hash) const;
@@ -65,6 +71,7 @@ namespace catapult { namespace cache {
 
 	private:
 		uint64_t m_maxResponseSize;
+		uint64_t m_cacheSize;
 		const PtDataContainer& m_transactionDataContainer;
 		utils::SpinReaderWriterLock::ReaderLockGuard m_readLock;
 	};

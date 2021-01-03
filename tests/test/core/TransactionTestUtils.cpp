@@ -72,10 +72,10 @@ namespace catapult { namespace test {
 		return constTransactions;
 	}
 
-	std::unique_ptr<model::Transaction> GenerateRandomTransactionWithSize(size_t entitySize) {
+	std::unique_ptr<model::Transaction> GenerateRandomTransactionWithSize(uint32_t entitySize) {
 		auto pEntity = utils::MakeUniqueWithSize<model::Transaction>(entitySize);
 		FillWithRandomData(MutableRawBuffer{ reinterpret_cast<uint8_t*>(pEntity.get()), entitySize });
-		pEntity->Size = static_cast<uint32_t>(entitySize);
+		pEntity->Size = entitySize;
 		pEntity->Type = static_cast<model::EntityType>(0x4000 | (0x0FFF & utils::to_underlying_type(pEntity->Type)));
 		return pEntity;
 	}

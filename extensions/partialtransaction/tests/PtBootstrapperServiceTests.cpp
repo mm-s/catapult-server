@@ -129,7 +129,7 @@ namespace catapult { namespace partialtransaction {
 		struct PtBootstrapperServiceTraits {
 			static auto CreateRegistrar() {
 				return CreatePtBootstrapperServiceRegistrar([]() {
-					return std::make_unique<cache::MemoryPtCacheProxy>(cache::MemoryCacheOptions(100, 100));
+					return std::make_unique<cache::MemoryPtCacheProxy>(cache::MemoryCacheOptions(100, 1'000'000));
 				});
 			}
 		};
@@ -150,7 +150,7 @@ namespace catapult { namespace partialtransaction {
 
 		// Assert:
 		EXPECT_EQ(2u, context.locator().numServices());
-		EXPECT_EQ(1u, context.locator().counters().size());
+		EXPECT_EQ(2u, context.locator().counters().size());
 
 		// - service
 		const auto& ptCache = GetMemoryPtCache(context.locator());
@@ -158,6 +158,7 @@ namespace catapult { namespace partialtransaction {
 
 		// - counter
 		EXPECT_EQ(0u, context.counter("PT CACHE"));
+		EXPECT_EQ(0u, context.counter("PT CACHE MEM"));
 	}
 
 	TEST(TEST_CLASS, PtHooksServiceIsRegistered) {

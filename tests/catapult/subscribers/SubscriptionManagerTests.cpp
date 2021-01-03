@@ -167,7 +167,7 @@ namespace catapult { namespace subscribers {
 
 		struct PtCacheTraits : public PtChangeTraits {
 			static auto CreateAggregate(SubscriptionManager& manager) {
-				return manager.createPtCache(cache::MemoryCacheOptions(100, 100));
+				return manager.createPtCache(cache::MemoryCacheOptions(100, 1'000'000));
 			}
 		};
 
@@ -338,7 +338,7 @@ namespace catapult { namespace subscribers {
 	namespace {
 		struct PtTraits {
 			static auto CreateCache(SubscriptionManager& manager) {
-				return manager.createPtCache(cache::MemoryCacheOptions(100, 100));
+				return manager.createPtCache(cache::MemoryCacheOptions(100, 1'000'000));
 			}
 
 			static void AddSubscriberWithAddCounter(SubscriptionManager& manager, size_t& counter) {

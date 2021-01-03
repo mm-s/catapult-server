@@ -28,6 +28,8 @@
 
 namespace catapult { namespace cache {
 
+	// region PtData
+
 	class PtData {
 	public:
 		explicit PtData(const model::DetachedTransactionInfo& transactionInfo)
@@ -91,19 +93,27 @@ namespace catapult { namespace cache {
 		std::vector<model::Cosignature> m_cosignatures;
 	};
 
+	// endregion
+
 	// region MemoryPtCacheView
 
 	MemoryPtCacheView::MemoryPtCacheView(
 			uint64_t maxResponseSize,
+			uint64_t cacheSize,
 			const PtDataContainer& transactionDataContainer,
 			utils::SpinReaderWriterLock::ReaderLockGuard&& readLock)
 			: m_maxResponseSize(maxResponseSize)
+			, m_cacheSize(cacheSize)
 			, m_transactionDataContainer(transactionDataContainer)
 			, m_readLock(std::move(readLock))
 	{}
 
 	size_t MemoryPtCacheView::size() const {
 		return m_transactionDataContainer.size();
+	}
+
+	utils::FileSize MemoryPtCacheView::memorySize() const {
+		return utils::FileSize::FromBytes(m_cacheSize);
 	}
 
 	model::WeakCosignedTransactionInfo MemoryPtCacheView::find(const Hash256& hash) const {
@@ -172,10 +182,12 @@ namespace catapult { namespace cache {
 		public:
 			MemoryPtCacheModifier(
 					uint64_t maxCacheSize,
+					uint64_t& cacheSize,
 					PtDataContainer& transactionDataContainer,
 					std::set<state::TimestampedHash>& timestampedHashes,
 					utils::SpinReaderWriterLock::WriterLockGuard&& writeLock)
 					: m_maxCacheSize(maxCacheSize)
+					, m_cacheSize(cacheSize)
 					, m_transactionDataContainer(transactionDataContainer)
 					, m_timestampedHashes(timestampedHashes)
 					, m_writeLock(std::move(writeLock))
@@ -187,7 +199,8 @@ namespace catapult { namespace cache {
 			}
 
 			bool add(const model::DetachedTransactionInfo& transactionInfo) override {
-				if (m_maxCacheSize <= m_transactionDataContainer.size())
+				auto transactionSize = transactionInfo.pEntity->Size;
+				if (m_maxCacheSize - m_cacheSize < transactionSize)
 					return false;
 
 				auto iter = m_transactionDataContainer.find(transactionInfo.EntityHash);
@@ -196,15 +209,20 @@ namespace catapult { namespace cache {
 
 				m_transactionDataContainer.emplace(transactionInfo.EntityHash, PtData(transactionInfo));
 				m_timestampedHashes.emplace(transactionInfo.pEntity->Deadline, transactionInfo.EntityHash);
-				LogSizes("partial transactions", m_transactionDataContainer.size(), m_maxCacheSize);
+
+				m_cacheSize += transactionSize;
+				LogSizes("partial transactions", m_cacheSize, m_maxCacheSize);
 				return true;
 			}
 
 			model::DetachedTransactionInfo add(const Hash256& parentHash, const model::Cosignature& cosignature) override {
 				auto iter = m_transactionDataContainer.find(parentHash);
-				return m_transactionDataContainer.cend() == iter || !iter->second.add(cosignature)
-						? model::DetachedTransactionInfo()
-						: ToTransactionInfo(*iter);
+				if (m_transactionDataContainer.cend() == iter || !iter->second.add(cosignature))
+					return model::DetachedTransactionInfo();
+
+				// don't enforce maxCacheSize here or partials might not be able to complete when cache is full
+				m_cacheSize += sizeof(model::Cosignature);
+				return ToTransactionInfo(*iter);
 			}
 
 			model::DetachedTransactionInfo remove(const Hash256& hash) override {
@@ -250,11 +268,13 @@ namespace catapult { namespace cache {
 		private:
 			void remove(PtDataContainer::iterator iter) {
 				m_timestampedHashes.erase(iter->second.timestampedHash());
+				m_cacheSize -= iter->second.transaction()->Size + sizeof(model::Cosignature) * iter->second.cosignatures().size();
 				m_transactionDataContainer.erase(iter);
 			}
 
 		private:
 			uint64_t m_maxCacheSize;
+			uint64_t& m_cacheSize;
 			PtDataContainer& m_transactionDataContainer;
 			std::set<state::TimestampedHash>& m_timestampedHashes;
 			utils::SpinReaderWriterLock::WriterLockGuard m_writeLock;
@@ -267,6 +287,8 @@ namespace catapult { namespace cache {
 
 	struct MemoryPtCache::Impl {
 		PtDataContainer TransactionDataContainer;
+		uint64_t CacheSize = 0;
+
 		std::set<state::TimestampedHash> TimestampedHashes;
 	};
 
@@ -279,13 +301,14 @@ namespace catapult { namespace cache {
 
 	MemoryPtCacheView MemoryPtCache::view() const {
 		auto readLock = m_lock.acquireReader();
-		return MemoryPtCacheView(m_options.MaxResponseSize, m_pImpl->TransactionDataContainer, std::move(readLock));
+		return MemoryPtCacheView(m_options.MaxResponseSize, m_pImpl->CacheSize, m_pImpl->TransactionDataContainer, std::move(readLock));
 	}
 
 	PtCacheModifierProxy MemoryPtCache::modifier() {
 		auto writeLock = m_lock.acquireWriter();
 		return PtCacheModifierProxy(std::make_unique<MemoryPtCacheModifier>(
 				m_options.MaxCacheSize,
+				m_pImpl->CacheSize,
 				m_pImpl->TransactionDataContainer,
 				m_pImpl->TimestampedHashes,
 				std::move(writeLock)));
