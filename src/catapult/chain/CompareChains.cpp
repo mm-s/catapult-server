@@ -142,7 +142,7 @@ namespace catapult { namespace chain {
 				auto startingHeight = m_startingHashesHeight;
 				auto maxHashes = m_options.HashesPerBatch;
 
-				CATAPULT_LOG(trace)
+				CATAPULT_LOG(debug)
 						<< "comparing hashes with local height " << m_localHeight
 						<< ", starting height " << startingHeight
 						<< ", max hashes " << maxHashes;
