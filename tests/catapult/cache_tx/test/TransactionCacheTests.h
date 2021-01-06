@@ -39,7 +39,7 @@ namespace catapult { namespace test {
 			CacheType cache(CreateDefaultOptions());
 
 			// Act:
-			auto unknownInfos = TTraits::GetUnknownTransactions(cache.view(), {});
+			auto unknownInfos = TTraits::GetUnknownTransactions(cache.view(), Timestamp(), {});
 
 			// Assert:
 			EXPECT_TRUE(unknownInfos.empty());
@@ -53,11 +53,30 @@ namespace catapult { namespace test {
 			TTraits::AddAllToCache(cache, transactionInfos);
 
 			// Act:
-			auto unknownInfos = TTraits::GetUnknownTransactions(cache.view(), {});
+			auto unknownInfos = TTraits::GetUnknownTransactions(cache.view(), Timestamp(), {});
 
 			// Assert:
 			EXPECT_EQ(5u, unknownInfos.size());
 			TTraits::AssertUnknownResult(transactionInfos, unknownInfos);
+		}
+
+		/// Asserts that unknownTransactions onlyreturns transactions with deadlines at least min deadline.
+		static void AssertUnknownTransactionsOnlyReturnsTransactionsWithDeadlinesAtLeastMinDeadline() {
+			// Arrange: timestamps are { 1, 2, 3, 4, 5 }
+			CacheType cache(CreateDefaultOptions());
+			auto transactionInfos = CreateTransactionInfos(5);
+			TTraits::AddAllToCache(cache, transactionInfos);
+
+			// Act:
+			auto unknownInfos = TTraits::GetUnknownTransactions(cache.view(), Timestamp(3), {});
+
+			// Assert:
+			EXPECT_EQ(3u, unknownInfos.size());
+			decltype(transactionInfos) expectedInfos;
+			expectedInfos.push_back(transactionInfos[2].copy());
+			expectedInfos.push_back(transactionInfos[3].copy());
+			expectedInfos.push_back(transactionInfos[4].copy());
+			TTraits::AssertUnknownResult(expectedInfos, unknownInfos);
 		}
 
 		/// Asserts that unknownTransactions returns all transactions not in filter.
@@ -68,7 +87,7 @@ namespace catapult { namespace test {
 			TTraits::AddAllToCache(cache, transactionInfos);
 
 			// Act:
-			auto unknownInfos = TTraits::GetUnknownTransactions(cache.view(), {
+			auto unknownInfos = TTraits::GetUnknownTransactions(cache.view(), Timestamp(), {
 				TTraits::MapToFilterId(transactionInfos[1]),
 				TTraits::MapToFilterId(transactionInfos[2]),
 				TTraits::MapToFilterId(transactionInfos[4])
@@ -90,7 +109,7 @@ namespace catapult { namespace test {
 			TTraits::AddAllToCache(cache, transactionInfos);
 
 			// Act:
-			auto unknownInfos = TTraits::GetUnknownTransactions(cache.view(), {
+			auto unknownInfos = TTraits::GetUnknownTransactions(cache.view(), Timestamp(), {
 				TTraits::MapToFilterId(transactionInfos[0]),
 				TTraits::MapToFilterId(transactionInfos[1]),
 				TTraits::MapToFilterId(transactionInfos[2]),
@@ -114,6 +133,7 @@ namespace catapult { namespace test {
 #define DEFINE_BASIC_UNKNOWN_TRANSACTIONS_TESTS(TEST_CLASS, TRAITS_NAME) \
 	MAKE_UNKNOWN_TRANSACTIONS_TEST(TEST_CLASS, TRAITS_NAME, UnknownTransactionsReturnsNoTransactionsWhenCacheIsEmpty) \
 	MAKE_UNKNOWN_TRANSACTIONS_TEST(TEST_CLASS, TRAITS_NAME, UnknownTransactionsReturnsAllTransactionsWhenFilterIsEmpty) \
+	MAKE_UNKNOWN_TRANSACTIONS_TEST(TEST_CLASS, TRAITS_NAME, UnknownTransactionsOnlyReturnsTransactionsWithDeadlinesAtLeastMinDeadline) \
 	MAKE_UNKNOWN_TRANSACTIONS_TEST(TEST_CLASS, TRAITS_NAME, UnknownTransactionsReturnsAllTransactionsNotInFilter) \
 	MAKE_UNKNOWN_TRANSACTIONS_TEST(TEST_CLASS, TRAITS_NAME, UnknownTransactionsReturnsNoTransactionsWhenAllTransactionsAreKnown)
 }}

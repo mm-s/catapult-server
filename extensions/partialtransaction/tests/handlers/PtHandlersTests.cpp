@@ -92,13 +92,23 @@ namespace catapult { namespace handlers {
 
 	namespace {
 		struct PullTransactionsTraits {
-			static constexpr auto Data_Header_Size = 0u;
+			static constexpr auto Data_Header_Size = sizeof(Timestamp);
 			static constexpr auto Packet_Type = ionet::PacketType::Pull_Partial_Transaction_Infos;
-			static constexpr auto RegisterHandler = RegisterPullPartialTransactionInfosHandler;
 			static constexpr auto Valid_Request_Payload_Size = SizeOf32<cache::ShortHashPair>();
 
 			using ResponseType = CosignedTransactionInfos;
 			using RetrieverParamType = cache::ShortHashPairMap;
+
+			using TransactionsInfoRetrieverAdapter = std::function<CosignedTransactionInfos (const cache::ShortHashPairMap&)>;
+			static void RegisterHandler(
+					ionet::ServerPacketHandlers& handlers,
+					const TransactionsInfoRetrieverAdapter& transactionsInfoRetriever) {
+				handlers::RegisterPullPartialTransactionInfosHandler(handlers, [transactionsInfoRetriever](
+						auto,
+						const auto& knownShortHashPairs) {
+					return transactionsInfoRetriever(knownShortHashPairs);
+				});
+			}
 		};
 	}
 
@@ -110,14 +120,16 @@ namespace catapult { namespace handlers {
 
 	namespace {
 		auto ExtractFromPacket(const ionet::Packet& packet, size_t numRequestHashPairs) {
+			auto filterValue = reinterpret_cast<const Timestamp&>(*packet.Data());
+
 			cache::ShortHashPairMap extractedMap;
-			const auto* pData = reinterpret_cast<const cache::ShortHashPair*>(packet.Data());
+			const auto* pData = reinterpret_cast<const cache::ShortHashPair*>(packet.Data() + sizeof(Timestamp));
 			for (auto i = 0u; i < numRequestHashPairs; ++i) {
 				extractedMap.emplace(pData->TransactionShortHash, pData->CosignaturesShortHash);
 				++pData;
 			}
 
-			return extractedMap;
+			return std::make_pair(filterValue, extractedMap);
 		}
 
 		class PullResponseContext {
@@ -203,15 +215,18 @@ namespace catapult { namespace handlers {
 		void AssertPullResponseIsSetWhenPacketIsValid(uint32_t numRequestHashPairs, uint32_t numResponseTransactions) {
 			// Arrange:
 			auto packetType = PullTransactionsTraits::Packet_Type;
-			auto pPacket = test::CreateRandomPacket(numRequestHashPairs * SizeOf32<cache::ShortHashPair>(), packetType);
+			uint32_t packetSize = sizeof(Timestamp) + numRequestHashPairs * SizeOf32<cache::ShortHashPair>();
+			auto pPacket = test::CreateRandomPacket(packetSize, packetType);
 			ionet::ServerPacketHandlers handlers;
 			size_t counter = 0;
 
-			auto extractedRequestHashPairs = ExtractFromPacket(*pPacket, numRequestHashPairs);
+			auto extractedRequestData = ExtractFromPacket(*pPacket, numRequestHashPairs);
+			Timestamp actualFilterValue;
 			cache::ShortHashPairMap actualRequestHashPairs;
 			PullResponseContext responseContext(numResponseTransactions);
-			RegisterPullPartialTransactionInfosHandler(handlers, [&](const auto& requestHashPairs) {
+			RegisterPullPartialTransactionInfosHandler(handlers, [&](auto filterValue, const auto& requestHashPairs) {
 				++counter;
+				actualFilterValue = filterValue;
 				actualRequestHashPairs = requestHashPairs;
 				return responseContext.response();
 			});
@@ -220,8 +235,9 @@ namespace catapult { namespace handlers {
 			ionet::ServerPacketHandlerContext handlerContext;
 			EXPECT_TRUE(handlers.process(*pPacket, handlerContext));
 
-			// Assert: the requested hash pairs were passed to the supplier
-			EXPECT_EQ(extractedRequestHashPairs, actualRequestHashPairs);
+			// Assert: the requested values were passed to the supplier
+			EXPECT_EQ(extractedRequestData.first, actualFilterValue);
+			EXPECT_EQ(extractedRequestData.second, actualRequestHashPairs);
 
 			// - the handler was called and has the correct header
 			EXPECT_EQ(1u, counter);

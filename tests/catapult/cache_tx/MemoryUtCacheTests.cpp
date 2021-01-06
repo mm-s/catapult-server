@@ -557,8 +557,9 @@ namespace catapult { namespace cache {
 		public:
 			static UnknownTransactions GetUnknownTransactions(
 					const MemoryUtCacheView& view,
+					Timestamp minDeadline,
 					const utils::ShortHashesSet& knownShortHashes) {
-				return view.unknownTransactions(BlockFeeMultiplier(10), knownShortHashes);
+				return view.unknownTransactions(minDeadline, BlockFeeMultiplier(10), knownShortHashes);
 			}
 
 			static void AddAllToCache(cache::UtCache& cache, const std::vector<model::TransactionInfo>& transactionInfos) {
@@ -590,7 +591,7 @@ namespace catapult { namespace cache {
 			test::AddAll(cache, test::CreateTransactionInfos(5));
 
 			// Act:
-			auto transactions = cache.view().unknownTransactions(BlockFeeMultiplier(10), {});
+			auto transactions = cache.view().unknownTransactions(Timestamp(), BlockFeeMultiplier(10), {});
 
 			// Assert:
 			EXPECT_EQ(numExpectedTransactions, transactions.size());
@@ -635,7 +636,7 @@ namespace catapult { namespace cache {
 			test::AddAll(cache, transactionInfos);
 
 			// Act:
-			auto transactions = cache.view().unknownTransactions(feeMultiplier, {});
+			auto transactions = cache.view().unknownTransactions(Timestamp(), feeMultiplier, {});
 
 			// Assert:
 			AssertDeadlines(transactions, expectedDeadlines);

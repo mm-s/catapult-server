@@ -44,32 +44,19 @@ namespace catapult { namespace handlers {
 			};
 		}
 
-		struct PullTransactionsInfo {
+		struct ParsedPullTransactionsRequest {
 		public:
-			PullTransactionsInfo() : IsValid(false)
-			{}
-
-		public:
+			bool IsValid = false;
+			Timestamp FilterValue;
 			cache::ShortHashPairMap ShortHashPairs;
-			bool IsValid;
+
+		public:
+			static void SetAll(ParsedPullTransactionsRequest& request, const cache::ShortHashPair* pShortHashPair, size_t count) {
+				request.ShortHashPairs.reserve(count);
+				for (auto i = 0u; i < count; ++i, ++pShortHashPair)
+					request.ShortHashPairs.emplace(pShortHashPair->TransactionShortHash, pShortHashPair->CosignaturesShortHash);
+			}
 		};
-
-		auto ProcessPullTransactionsRequest(const ionet::Packet& packet) {
-			if (ionet::PacketType::Pull_Partial_Transaction_Infos != packet.Type)
-				return PullTransactionsInfo();
-
-			auto range = ionet::ExtractFixedSizeStructuresFromPacket<cache::ShortHashPair>(packet);
-			if (range.empty() && sizeof(ionet::Packet) != packet.Size)
-				return PullTransactionsInfo();
-
-			PullTransactionsInfo info;
-			info.ShortHashPairs.reserve(range.size());
-			for (const auto& hashPair : range)
-				info.ShortHashPairs.emplace(hashPair.TransactionShortHash, hashPair.CosignaturesShortHash);
-
-			info.IsValid = true;
-			return info;
-		}
 
 		void AppendZeroBytes(ionet::PacketPayloadBuilder& builder, size_t count) {
 			builder.appendValues(std::vector<uint8_t>(count, 0));
@@ -102,11 +89,11 @@ namespace catapult { namespace handlers {
 
 		auto CreatePullTransactionsHandler(const CosignedTransactionInfosRetriever& transactionInfosRetriever) {
 			return [transactionInfosRetriever](const auto& packet, auto& context) {
-				auto info = ProcessPullTransactionsRequest(packet);
-				if (!info.IsValid)
+				auto request = detail::ParsePullRequest<Timestamp, cache::ShortHashPair, ParsedPullTransactionsRequest>(packet);
+				if (!request.IsValid)
 					return;
 
-				auto transactionInfos = transactionInfosRetriever(info.ShortHashPairs);
+				auto transactionInfos = transactionInfosRetriever(request.FilterValue, request.ShortHashPairs);
 				context.response(BuildPacket(transactionInfos));
 			};
 		}
