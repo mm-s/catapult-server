@@ -38,7 +38,7 @@ namespace catapult { namespace api {
 
 	public:
 		/// Gets all partial transaction infos from the remote that have a deadline at least \a minDeadline
-		/// excluding those with all hashes in \a knownShortHashPairs.
+		/// and do not have a short hash pair in \a knownShortHashPairs.
 		virtual thread::future<partialtransaction::CosignedTransactionInfos> transactionInfos(
 				Timestamp minDeadline,
 				cache::ShortHashPairRange&& knownShortHashPairs) const = 0;

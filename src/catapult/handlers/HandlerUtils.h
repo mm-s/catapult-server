@@ -32,25 +32,28 @@ namespace catapult { namespace handlers {
 
 	namespace detail {
 		/// Parses a pull request \a packet.
-		template<typename TFilterValue, typename THash, typename TRequest>
+		template<typename TRequest>
 		TRequest ParsePullRequest(const ionet::Packet& packet) {
+			using FilterType = typename TRequest::FilterType;
+			using HashType = typename TRequest::HashType;
+
 			// packet is guaranteed to have correct type because this function is only called for matching packets by ServerPacketHandlers
 			auto dataSize = ionet::CalculatePacketDataSize(packet);
-			if (dataSize < sizeof(TFilterValue))
+			if (dataSize < sizeof(FilterType))
 				return TRequest();
 
 			// data is prepended with filter value
 			TRequest request;
-			request.FilterValue = reinterpret_cast<const TFilterValue&>(*packet.Data());
-			dataSize -= sizeof(TFilterValue);
+			request.FilterValue = reinterpret_cast<const FilterType&>(*packet.Data());
+			dataSize -= sizeof(FilterType);
 
 			// followed by short hashes
-			const auto* pShortHashDataStart = packet.Data() + sizeof(TFilterValue);
-			auto numShortHashes = ionet::CountFixedSizeStructures<THash>({ pShortHashDataStart, dataSize });
-			if (0 == numShortHashes && 0 != dataSize)
+			const auto* pHashDataStart = packet.Data() + sizeof(FilterType);
+			auto numHashes = ionet::CountFixedSizeStructures<HashType>({ pHashDataStart, dataSize });
+			if (0 == numHashes && 0 != dataSize)
 				return TRequest();
 
-			TRequest::SetAll(request, reinterpret_cast<const THash*>(pShortHashDataStart), numShortHashes);
+			TRequest::SetAll(request, reinterpret_cast<const HashType*>(pHashDataStart), numHashes);
 			request.IsValid = true;
 			return request;
 		}
@@ -80,6 +83,10 @@ namespace catapult { namespace handlers {
 	private:
 		struct ParsedPullRequest {
 		public:
+			using FilterType = TFilterValue;
+			using HashType = utils::ShortHash;
+
+		public:
 			bool IsValid = false;
 			TFilterValue FilterValue;
 			utils::ShortHashesSet ShortHashes;
@@ -97,7 +104,7 @@ namespace catapult { namespace handlers {
 		template<typename TEntitiesRetriever>
 		static auto Create(ionet::PacketType packetType, TEntitiesRetriever entitiesRetriever) {
 			return [packetType, entitiesRetriever](const auto& packet, auto& context) {
-				auto request = detail::ParsePullRequest<TFilterValue, utils::ShortHash, ParsedPullRequest>(packet);
+				auto request = detail::ParsePullRequest<ParsedPullRequest>(packet);
 				if (!request.IsValid)
 					return;
 

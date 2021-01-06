@@ -60,11 +60,13 @@ namespace catapult { namespace test {
 			TTraits::AssertUnknownResult(transactionInfos, unknownInfos);
 		}
 
-		/// Asserts that unknownTransactions onlyreturns transactions with deadlines at least min deadline.
+		/// Asserts that unknownTransactions only returns transactions with deadlines at least min deadline.
 		static void AssertUnknownTransactionsOnlyReturnsTransactionsWithDeadlinesAtLeastMinDeadline() {
-			// Arrange: timestamps are { 1, 2, 3, 4, 5 }
+			// Arrange:
 			CacheType cache(CreateDefaultOptions());
-			auto transactionInfos = CreateTransactionInfos(5);
+			auto transactionInfos = CreateTransactionInfos(5, [](auto i) {
+				return Timestamp(std::vector<size_t>({ 1, 4, 3, 2, 5 })[i]);
+			});
 			TTraits::AddAllToCache(cache, transactionInfos);
 
 			// Act:
@@ -73,8 +75,8 @@ namespace catapult { namespace test {
 			// Assert:
 			EXPECT_EQ(3u, unknownInfos.size());
 			decltype(transactionInfos) expectedInfos;
+			expectedInfos.push_back(transactionInfos[1].copy());
 			expectedInfos.push_back(transactionInfos[2].copy());
-			expectedInfos.push_back(transactionInfos[3].copy());
 			expectedInfos.push_back(transactionInfos[4].copy());
 			TTraits::AssertUnknownResult(expectedInfos, unknownInfos);
 		}

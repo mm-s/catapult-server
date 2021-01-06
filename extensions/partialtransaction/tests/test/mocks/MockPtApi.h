@@ -53,14 +53,14 @@ namespace catapult { namespace mocks {
 			m_errorEntryPoint = entryPoint;
 		}
 
-		/// Gets a vector of short hash pair ranges that were passed to the partial transaction infos requests.
-		const std::vector<TransactionInfosRequest>& transactionInfosRequests() const {
+		/// Gets a vector of parameters that were passed to the partial transaction infos requests.
+		const auto& transactionInfosRequests() const {
 			return m_transactionInfosRequests;
 		}
 
 	public:
 		/// Gets the configured partial transaction infos and throws if the error entry point is set to Partial_Transaction_Infos.
-		/// \note The \a minDeadline and \a knownShortHashPairs parameter is captured.
+		/// \note The \a minDeadline and \a knownShortHashPairs parameters are captured.
 		thread::future<partialtransaction::CosignedTransactionInfos> transactionInfos(
 				Timestamp minDeadline,
 				cache::ShortHashPairRange&& knownShortHashPairs) const override {

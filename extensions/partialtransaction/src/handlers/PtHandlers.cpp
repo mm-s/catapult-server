@@ -46,6 +46,10 @@ namespace catapult { namespace handlers {
 
 		struct ParsedPullTransactionsRequest {
 		public:
+			using FilterType = Timestamp;
+			using HashType = cache::ShortHashPair;
+
+		public:
 			bool IsValid = false;
 			Timestamp FilterValue;
 			cache::ShortHashPairMap ShortHashPairs;
@@ -89,7 +93,7 @@ namespace catapult { namespace handlers {
 
 		auto CreatePullTransactionsHandler(const CosignedTransactionInfosRetriever& transactionInfosRetriever) {
 			return [transactionInfosRetriever](const auto& packet, auto& context) {
-				auto request = detail::ParsePullRequest<Timestamp, cache::ShortHashPair, ParsedPullTransactionsRequest>(packet);
+				auto request = detail::ParsePullRequest<ParsedPullTransactionsRequest>(packet);
 				if (!request.IsValid)
 					return;
 
