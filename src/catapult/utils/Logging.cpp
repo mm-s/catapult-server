@@ -302,21 +302,30 @@ namespace catapult { namespace utils {
 	}
 
 	void LoggingBootstrapper::addFileLogger(const FileLoggerOptions& options, const LogFilter& filter) {
+		std::cout << " ENTER adding file logger ";
 		namespace keywords = boost::log::keywords;
 		using backend_t = boost::log::sinks::text_file_backend;
+
+		std::cout << " make backend ";
 		auto pBackend = boost::make_shared<backend_t>(
 				keywords::file_name = options.FilePattern,
 				keywords::rotation_size = options.RotationSize,
 				keywords::open_mode = std::ios_base::app);
 
+		std::cout << " make collector ";
 		auto pCollector = boost::log::sinks::file::make_collector(
 				keywords::target = options.Directory,
 				keywords::max_size = options.MaxTotalSize,
 				keywords::min_free_space = options.MinFreeSpace);
+		std::cout << " set collector ";
 		pBackend->set_file_collector(pCollector);
+		std::cout << " scan ";
 		pBackend->scan_for_files(boost::log::sinks::file::scan_matching);
 
+		std::cout << " add backend ";
 		m_pImpl->addBackend(pBackend, options, filter);
+
+		std::cout << " EXIT adding file logger ";
 	}
 
 	// endregion
