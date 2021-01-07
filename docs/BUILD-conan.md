@@ -10,6 +10,16 @@ NOTE: Commands are using `\` as marker for line continuations
 
 ### Install and build conan dependencies
 
+If this is first time running conan:
+```sh
+conan profile new default --detect
+```
+
+In case of g++ you need set proper C++ ABI:
+```sh
+conan profile update settings.compiler.libcxx=libstdc++11 default
+```
+
 While conan will be building and installing packages, you might want to go for a ☕ (or lunch),
 as this will probably take *a bit*.
 
