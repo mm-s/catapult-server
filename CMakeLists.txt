@@ -74,11 +74,11 @@ function(catapult_add_rocksdb_dependencies TARGET_NAME)
 endfunction()
 
 # cmake grouping targets
-add_custom_target(extensions)
-add_custom_target(mongo)
-add_custom_target(plugins)
+# add_custom_target(extensions)
+# add_custom_target(mongo)
+# add_custom_target(plugins)
 add_custom_target(server)
-add_custom_target(tools)
+# add_custom_target(tools)
 
 ### add source directories
 add_subdirectory(external)
@@ -88,15 +88,15 @@ add_subdirectory(src)
 catapult_add_tests_subdirectory(tests)
 
 # run other tests second
-add_subdirectory(sdk)
-add_subdirectory(plugins)
-add_subdirectory(extensions)
+# add_subdirectory(sdk)
+# add_subdirectory(plugins)
+# add_subdirectory(extensions)
 
-add_subdirectory(resources)
+# add_subdirectory(resources)
 
-if(EXISTS "${CMAKE_SOURCE_DIR}/internal/CMakeLists.txt")
-	message("--- adding internal directory ---")
-	add_subdirectory(internal)
-endif()
+# if(EXISTS "${CMAKE_SOURCE_DIR}/internal/CMakeLists.txt")
+# 	message("--- adding internal directory ---")
+# 	add_subdirectory(internal)
+# endif()
 
-add_subdirectory(tools)
+# add_subdirectory(tools)
