@@ -24,6 +24,7 @@
 #include "catapult/model/Address.h"
 #include "catapult/model/BlockUtils.h"
 #include "tests/test/core/TransactionInfoTestUtils.h"
+#include "tests/test/core/mocks/MockMemoryBlockStorage.h"
 #include "tests/test/core/mocks/MockTransaction.h"
 #include "tests/test/nodeps/Filesystem.h"
 #include "tests/test/nodeps/KeyTestUtils.h"
@@ -752,6 +753,19 @@ namespace catapult { namespace harvesting {
 		});
 	}
 
+	TEST(TEST_CLASS, CommitCannotBeCalledMultipleTimes) {
+		// Arrange:
+		RunUtFacadeTest(0, [](auto& facade, const auto&, const auto&) {
+			// - call commit once
+			auto pBlockHeader = CreateBlockHeaderWithHeight(Default_Height + Height(1));
+			auto pBlock = facade.commit(*pBlockHeader);
+			EXPECT_TRUE(!!pBlock);
+
+			// Act + Assert: call commit again
+			EXPECT_THROW(facade.commit(*pBlockHeader), catapult_invalid_argument);
+		});
+	}
+
 	// endregion
 
 	// region FacadeTestContext
@@ -1242,6 +1256,52 @@ namespace catapult { namespace harvesting {
 			auto stateHashInfo = cacheDelta.calculateStateHash(height);
 			EXPECT_EQ(stateHashInfo.StateHash, blockStateHash);
 		});
+	}
+
+	// endregion
+
+	// region commit - deadlock
+
+	TEST(TEST_CLASS, CommitAcquiresResourcesInCorrectOrderSoAsToNotDeadlockWithBlockChainSyncConsumer) {
+		// Arrange: create factory and facade
+		auto catapultCache = test::CreateCatapultCacheWithMarkerAccount(Default_Height);
+		SetDependentState(catapultCache);
+
+		// - simulate storage
+		auto pBlockStorage = mocks::CreateMemoryBlockStorageCache(1);
+		auto hashSupplier = [&blockStorage = *pBlockStorage](auto) {
+			// - acquire storage read lock
+			auto blockStorageView = blockStorage.view();
+			test::Pause();
+			return Hash256();
+		};
+
+		test::MockExecutionConfiguration executionConfig;
+		HarvestingUtFacadeFactory factory(catapultCache, CreateBlockChainConfiguration(), executionConfig.Config, hashSupplier);
+
+		auto pFacade = factory.create(Default_Time);
+		ASSERT_TRUE(!!pFacade);
+
+		// - simulate consumer
+		std::atomic_bool isConsumerTerminated(false);
+		std::thread([&catapultCache, &blockStorage = *pBlockStorage, &isConsumerTerminated]() {
+			// - acquire storage write lock
+			auto blockStorageModifier = blockStorage.modifier();
+			test::Pause();
+
+			// - acquire cache write lock
+			auto pCacheDelta = catapultCache.createDelta();
+			catapultCache.commit(Height(1));
+			isConsumerTerminated = true;
+		}).detach();
+
+		// Act: create a block without deadlock
+		auto pBlockHeader = CreateBlockHeaderWithHeight(Default_Height + Height(1));
+		auto pBlock = pFacade->commit(*pBlockHeader);
+
+		// Assert:
+		EXPECT_TRUE(!!pBlock);
+		WAIT_FOR(isConsumerTerminated);
 	}
 
 	// endregion
