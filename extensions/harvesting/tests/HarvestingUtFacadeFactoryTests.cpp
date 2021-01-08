@@ -75,8 +75,8 @@ namespace catapult { namespace harvesting {
 		// region RunUtFacadeTest / AssertEmpty
 
 		void SetDependentState(cache::CatapultCache& catapultCache) {
-			auto delta = catapultCache.createDelta();
-			delta.dependentState().LastRecalculationHeight = Default_Last_Recalculation_Height;
+			auto cacheDelta = catapultCache.createDelta();
+			cacheDelta.dependentState().LastRecalculationHeight = Default_Last_Recalculation_Height;
 			catapultCache.commit(Default_Height);
 		}
 
@@ -450,8 +450,8 @@ namespace catapult { namespace harvesting {
 			auto importanceMultipleHeight = model::CalculateGroupedHeight<Height>(Default_Height, config.ImportanceGrouping);
 			auto catapultCache = test::CreateEmptyCatapultCache(config);
 			{
-				auto delta = catapultCache.createDelta();
-				CreateAccounts(delta.sub<cache::AccountStateCache>(), importanceMultipleHeight, balances);
+				auto cacheDelta = catapultCache.createDelta();
+				CreateAccounts(cacheDelta.sub<cache::AccountStateCache>(), importanceMultipleHeight, balances);
 				catapultCache.commit(importanceMultipleHeight - Height(1));
 			}
 
@@ -578,8 +578,8 @@ namespace catapult { namespace harvesting {
 		std::vector<crypto::KeyPair> keyPairs;
 		auto catapultCache = test::CreateEmptyCatapultCache(config);
 		{
-			auto delta = catapultCache.createDelta();
-			keyPairs = CreateAccounts(delta.sub<cache::AccountStateCache>(), importanceMultipleHeight, harvestingBalances);
+			auto cacheDelta = catapultCache.createDelta();
+			keyPairs = CreateAccounts(cacheDelta.sub<cache::AccountStateCache>(), importanceMultipleHeight, harvestingBalances);
 			catapultCache.commit(importanceMultipleHeight - Height(1));
 		}
 
@@ -820,7 +820,7 @@ namespace catapult { namespace harvesting {
 			}
 
 			void setCacheHeight(Height height) {
-				auto delta = m_cache.createDelta();
+				auto cacheDelta = m_cache.createDelta();
 				m_cache.commit(height);
 			}
 
@@ -1264,44 +1264,49 @@ namespace catapult { namespace harvesting {
 
 	TEST(TEST_CLASS, CommitAcquiresResourcesInCorrectOrderSoAsToNotDeadlockWithBlockChainSyncConsumer) {
 		// Arrange: create factory and facade
-		auto catapultCache = test::CreateCatapultCacheWithMarkerAccount(Default_Height);
-		SetDependentState(catapultCache);
+		auto config = CreateBlockChainConfiguration();
+		auto importanceMultipleHeight = model::CalculateGroupedHeight<Height>(Default_Height, config.ImportanceGrouping);
+		auto catapultCache = test::CreateEmptyCatapultCache(config);
+		{
+			auto cacheDelta = catapultCache.createDelta();
+			catapultCache.commit(importanceMultipleHeight - Height(1));
+		}
 
 		// - simulate storage
 		auto pBlockStorage = mocks::CreateMemoryBlockStorageCache(1);
 		auto hashSupplier = [&blockStorage = *pBlockStorage](auto) {
-			// - acquire storage read lock
+			CATAPULT_LOG(debug) << "harvester: acquire storage read lock";
 			auto blockStorageView = blockStorage.view();
 			test::Pause();
 			return Hash256();
 		};
 
 		test::MockExecutionConfiguration executionConfig;
-		HarvestingUtFacadeFactory factory(catapultCache, CreateBlockChainConfiguration(), executionConfig.Config, hashSupplier);
+		HarvestingUtFacadeFactory factory(catapultCache, config, executionConfig.Config, hashSupplier);
 
 		auto pFacade = factory.create(Default_Time);
 		ASSERT_TRUE(!!pFacade);
 
 		// - simulate consumer
-		std::atomic_bool isConsumerTerminated(false);
-		std::thread([&catapultCache, &blockStorage = *pBlockStorage, &isConsumerTerminated]() {
-			// - acquire storage write lock
+		auto consumerThread = std::thread([&catapultCache, &blockStorage = *pBlockStorage]() {
+			CATAPULT_LOG(debug) << "consumer: acquire storage write lock";
 			auto blockStorageModifier = blockStorage.modifier();
 			test::Pause();
 
-			// - acquire cache write lock
-			auto pCacheDelta = catapultCache.createDelta();
+			CATAPULT_LOG(debug) << "consumer: acquire cache write lock";
+			auto cacheDelta = catapultCache.createDelta();
 			catapultCache.commit(Height(1));
-			isConsumerTerminated = true;
-		}).detach();
+		});
 
 		// Act: create a block without deadlock
-		auto pBlockHeader = CreateBlockHeaderWithHeight(Default_Height + Height(1));
+		CATAPULT_LOG(debug) << "harvester: acquire cache read lock";
+		auto pBlockHeader = CreateImportanceBlockHeader(importanceMultipleHeight);
 		auto pBlock = pFacade->commit(*pBlockHeader);
+		CATAPULT_LOG(debug) << "harvester: created block";
 
 		// Assert:
 		EXPECT_TRUE(!!pBlock);
-		WAIT_FOR(isConsumerTerminated);
+		consumerThread.join();
 	}
 
 	// endregion
