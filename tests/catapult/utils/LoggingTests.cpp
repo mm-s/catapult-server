@@ -25,6 +25,7 @@
 #include "tests/catapult/utils/test/LoggingTestUtils.h"
 #include "tests/test/nodeps/Filesystem.h"
 #include "tests/TestHarness.h"
+#include <boost/filesystem.hpp>
 
 namespace catapult { namespace utils {
 
@@ -67,6 +68,14 @@ namespace catapult { namespace utils {
 		void AddUnfilteredFileLogger(LoggingBootstrapper& bootstrapper) {
 			bootstrapper.addFileLogger(test::CreateTestFileLoggerOptions(), LogFilter(LogLevel::min));
 		}
+	}
+
+
+	TEST(TEST_CLASS, AaaBbbCcc) {
+		boost::filesystem::create_directories("../xd");
+
+		boost::filesystem::create_directories("../xd");
+
 	}
 
 	TEST(TEST_CLASS, CanOutputLogLevel) {
