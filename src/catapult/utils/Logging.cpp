@@ -40,6 +40,7 @@
 #endif
 
 #include <boost/phoenix.hpp>
+#include <filesystem>
 #include <unordered_map>
 
 namespace catapult { namespace utils {
@@ -312,7 +313,7 @@ namespace catapult { namespace utils {
 				keywords::rotation_size = options.RotationSize,
 				keywords::open_mode = std::ios_base::app);
 
-		std::cout << " make collector ";
+		std::cout << " make collector " << options.Directory << ", " << std::filesystem::exists(options.Directory) << " ";
 		auto pCollector = boost::log::sinks::file::make_collector(
 				keywords::target = options.Directory,
 				keywords::max_size = options.MaxTotalSize,
