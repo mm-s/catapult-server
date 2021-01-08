@@ -309,11 +309,15 @@ namespace catapult { namespace utils {
 
 		std::cout << " make backend ";
 		auto pBackend = boost::make_shared<backend_t>(
-				keywords::file_name = options.FilePattern,
+				keywords::file_name = "output.log",
+				keywords::target_file_name = options.FilePattern,
 				keywords::rotation_size = options.RotationSize,
 				keywords::open_mode = std::ios_base::app);
 
 		std::cout << " make collector " << options.Directory << ", " << std::filesystem::exists(options.Directory) << " ";
+
+		std::filesystem::remove_all(options.Directory);
+
 		auto pCollector = boost::log::sinks::file::make_collector(
 				keywords::target = options.Directory,
 				keywords::max_size = options.MaxTotalSize,
