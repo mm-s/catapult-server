@@ -69,9 +69,11 @@ namespace catapult { namespace disruptor {
 
 		template<typename TTraits>
 		void AssertConsumerInputCreation(std::initializer_list<uint32_t> sizes) {
-			// Act:
+			// Arrange:
 			auto range = CreateEntityRange<TTraits>(sizes);
 			auto entities = test::ExtractEntities(range);
+
+			// Act:
 			auto input = ConsumerInput(std::move(range));
 
 			// Assert:
@@ -111,6 +113,8 @@ namespace catapult { namespace disruptor {
 		auto identityKey = test::GenerateRandomByteArray<Key>();
 		auto range = CreateEntityRange<TTraits>({ 123, 123, 123 });
 		auto entities = test::ExtractEntities(range);
+
+		// Act:
 		auto input = ConsumerInput({ std::move(range), { identityKey, "11.22.33.44" } }, InputSource::Local);
 
 		// Assert:
@@ -132,11 +136,14 @@ namespace catapult { namespace disruptor {
 	// region memorySize
 
 	TEST(TEST_CLASS, CanCalculateMemorySizeForEmptyInput) {
-		// Act:
+		// Arrange:
 		ConsumerInput input;
 
+		// Act:
+		auto memorySize = input.memorySize();
+
 		// Assert:
-		EXPECT_EQ(utils::FileSize(), input.memorySize());
+		EXPECT_EQ(utils::FileSize(), memorySize);
 	}
 
 	TEST(TEST_CLASS, CanCalculateMemorySizeForBlockConsumerInput) {
