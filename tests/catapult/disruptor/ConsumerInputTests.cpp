@@ -67,6 +67,14 @@ namespace catapult { namespace disruptor {
 			return test::CreateEntityRange(entityPointers);
 		}
 
+		// endregion
+	}
+
+#define ENTITY_TRAITS_BASED_TEST(TEST_NAME) ENTITY_TRAITS_BASED_CLASS_TEST(TEST_CLASS, TEST_NAME)
+
+	// region constructor
+
+	namespace {
 		template<typename TTraits>
 		void AssertConsumerInputCreation(std::initializer_list<uint32_t> sizes) {
 			// Arrange:
@@ -80,13 +88,7 @@ namespace catapult { namespace disruptor {
 			auto expectedCount = static_cast<size_t>(std::distance(sizes.begin(), sizes.end()));
 			TTraits::AssertInput(input, expectedCount, entities, InputSource::Unknown);
 		}
-
-		// endregion
 	}
-
-#define ENTITY_TRAITS_BASED_TEST(TEST_NAME) ENTITY_TRAITS_BASED_CLASS_TEST(TEST_CLASS, TEST_NAME)
-
-	// region constructor
 
 	TEST(TEST_CLASS, CanCreateEmptyConsumerInput) {
 		// Act:
