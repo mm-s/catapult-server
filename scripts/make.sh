@@ -75,7 +75,6 @@ function download_all {
 	download_git_dependency zeromq libzmq v4.3.3
 	download_git_dependency zeromq cppzmq v4.7.1
 
-	download_git_dependency facebook rocksdb v6.13.3
 }
 
 function install_boost {
@@ -138,17 +137,6 @@ function install_zmq_cpp {
 	install_git_dependency zeromq cppzmq
 }
 
-function install_rocks {
-	cmake_options=()
-	cmake_options+=(-DPORTABLE=1)
-	cmake_options+=(-DWITH_TESTS=OFF)
-	cmake_options+=(-DWITH_TOOLS=OFF)
-	cmake_options+=(-DWITH_BENCHMARK_TOOLS=OFF)
-	cmake_options+=(-DWITH_CORE_TOOLS=OFF)
-	cmake_options+=(-DWITH_GFLAGS=OFF)
-	install_git_dependency facebook rocksdb
-}
-
 function install_all {
 	declare -a installers=(
 		install_boost
@@ -158,7 +146,6 @@ function install_all {
 		install_mongo_cxx_driver
 		install_zmq_lib
 		install_zmq_cpp
-		install_rocks
 	)
 	for install in "${installers[@]}"
 	do
